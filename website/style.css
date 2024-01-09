@@ -1,0 +1,86 @@
+body {
+    max-width: 800px;
+    font-family: serif;
+    margin: auto;
+}
+
+header {
+    position: sticky;
+    top: 0;
+    background-color: #f4fff4;
+}
+
+header ol {
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    padding: 0;
+}
+
+header ol li {
+    width: 50%;
+}
+
+header ol a {
+    display: flex;
+    justify-content: center;
+    text-decoration: none;
+    color: black;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 20px;
+}
+
+header ol a:hover {
+    background-color: #e3fde3;
+    text-decoration: lightblue underline 2px;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+}
+
+#input-title {
+    font-size: 1.7rem;
+}
+
+#today {
+    margin: auto;
+}
+
+main input, main textarea {
+    border: none;
+    font-family: serif;
+    outline: none;
+}
+
+main textarea {
+    resize: none;
+    font-size: 1.2rem;
+    line-height: 1.6;
+}
+
+main article:not(#past-entries) {
+    border: 1px solid black;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+main article h2 {
+    margin-top: 0;
+}
+
+main > article {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+footer {
+    display: flex;
+}
+
+footer a {
+    margin: auto;
+}
