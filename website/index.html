@@ -15,12 +15,13 @@
 <main>
     <h1 id="today">{{date}}</h1>
     <input type="text" name="title" id="input-title" placeholder="{{random_title}}">
-    <textarea name="body_text" id="input-body-text" rows="15" placeholder="{{random_entry}}"></textarea>
+    <textarea name="body_text" id="input-body-text" rows="15" placeholder="{{random_text}}"></textarea>
+    <button id="save-button">Gem</button>
     <article id="past-entries">
         <h1 id="past">Tidligere indgange i dagbogen</h1>
         {{#each entry}}
         <article>
-            <h2>{{this.date}} - {{this.title}}</h2>
+            <h2>{{this.time}} - {{this.title}}</h2>
             {{this.text}}
         </article>
         {{/each}}
@@ -30,5 +31,6 @@
 <footer>
     <a href="https://github.com/jehaj">github.com/jehaj</a>
 </footer>
+<script src="script.js"></script>
 </body>
 </html>
