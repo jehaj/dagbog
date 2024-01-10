@@ -9,18 +9,39 @@ use axum::{
 use axum::http::StatusCode;
 use handlebars::Handlebars;
 use serde_json::json;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use rusqlite::{Connection, Result};
 use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::{Datelike, DateTime, Local, Month};
+use num_traits::cast::FromPrimitive;
 
-const PATH_TO_DB: &str = "./db.db";
+const PATH_TO_DB: &str = "db.sqlite3";
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize)]
 struct Entry {
     title: String,
-    #[serde(default = "get_unix_timestamp")]
+    #[serde(default = "get_unix_timestamp", serialize_with = "time_to_text")]
     time: u64,
     text: String,
+}
+
+#[derive(Serialize)]
+struct Reply {
+    #[serde(flatten)]
+    current_entry: Entry,
+    entries: Vec<Entry>
+}
+
+// Returner Onsdag d. 10. januar 2024 for 1704843226.
+fn time_to_text<S>(time: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer,
+{
+    let datetime: DateTime<Local> = DateTime::from(DateTime::from_timestamp(*time as i64, 0).unwrap());
+    let weekday = datetime.weekday().to_string();
+    let day = datetime.day();
+    let month_name = Month::from_u32(datetime.month()).unwrap().name();
+    let year = datetime.year();
+    serializer.serialize_str(format!("{} d. {}. {} {}", weekday, day, month_name, year).as_str())
 }
 
 fn get_unix_timestamp() -> u64 {
@@ -40,25 +61,24 @@ async fn get_index() -> Html<String> {
     for row in res {
         blogs.push(row.unwrap());
     }
-    println!("{:?}", blogs);
     let res = conn.query_row(query_for_todays_entry(), [], |row| Result::Ok(Entry {
         title: row.get_unwrap(0),
         time: row.get_unwrap(1),
         text: row.get_unwrap(2)
     }));
     let data = match res {
-        Ok(entry) => json!({
-            "date": entry.time,
-            "random_title": entry.title,
-            "random_text": entry.text,
-            "entry": blogs
+        Ok(entry) => json!(Reply {
+            current_entry: entry,
+            entries: blogs
         }),
         Err(_) => json!({
             "date": "i dag",
             "random_title": "Der var engang...",
-            "random_text": "Nu skal i høre den fantastiske fortælling: Der var engang to brødre..."
+            "random_text": "Nu skal I høre en fantastisk fortælling: Der var engang to brødre...",
+            "entry": blogs
         })
     };
+    println!("{:?}", data);
     // let utf8lossy = String::from_utf8_lossy(include_bytes!("../website/index.html"));
     // let index_file: &str = utf8lossy.as_ref();
     // handlebar.register_template_string("index", index_file).unwrap();
@@ -69,7 +89,7 @@ async fn get_index() -> Html<String> {
 fn query_for_todays_entry() -> &'static str {
     "SELECT title, time, text
 FROM blog_entries
-WHERE date(\"time\", 'unixepoch') = date(\"now\")
+WHERE date(\"time\", 'unixepoch', 'localtime') = date(\"now\", 'localtime')
 ORDER BY \"time\" DESC
 LIMIT 1;"
 }
@@ -77,9 +97,11 @@ LIMIT 1;"
 fn query_for_past_entries() -> &'static str {
     "SELECT title, max(\"time\") as \"time\", text
 FROM blog_entries
-WHERE date(\"now\") > date(\"time\", 'unixepoch')
+WHERE date(\"now\", 'localtime') > date(\"time\", 'unixepoch', 'localtime')
 GROUP BY
-date(\"time\",'unixepoch');"
+date(\"time\",'unixepoch')
+ORDER BY
+\"time\" DESC;"
 }
 
 async fn get_style() -> Response<String> {

@@ -13,13 +13,13 @@
     </ol>
 </header>
 <main>
-    <h1 id="today">{{date}}</h1>
-    <input type="text" name="title" id="input-title" placeholder="{{random_title}}">
-    <textarea name="body_text" id="input-body-text" rows="15" placeholder="{{random_text}}"></textarea>
+    <h1 id="today">{{time}}</h1>
+    <input type="text" name="title" id="input-title" placeholder="{{random_title}}" value="{{title}}" autocomplete="off">
+    <textarea name="body_text" id="input-body-text" rows="15" placeholder="{{random_text}}" autocomplete="off">{{text}}</textarea>
     <button id="save-button">Gem</button>
     <article id="past-entries">
         <h1 id="past">Tidligere indgange i dagbogen</h1>
-        {{#each entry}}
+        {{#each entries}}
         <article>
             <h2>{{this.time}} - {{this.title}}</h2>
             {{this.text}}

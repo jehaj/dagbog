@@ -67,6 +67,10 @@ main article:not(#past-entries) {
     border-radius: 10px;
 }
 
+main article h1 {
+    margin-bottom: 0;
+}
+
 main article h2 {
     margin-top: 0;
 }

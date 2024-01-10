@@ -15,3 +15,5 @@ handlebars = "5.0.0"
 serde_json = "1.0"
 serde = { version = "1.0.0", features = ["derive"] }
 rusqlite = { version = "0.30.0", features = ["bundled"] }
+chrono = "0.4.0"
+num-traits = "0.2.0"
