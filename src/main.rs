@@ -7,7 +7,7 @@ use axum::{
 };
 use axum::http::StatusCode;
 use handlebars::Handlebars;
-use serde_json::json;
+use serde_json::{json, Value};
 use serde::{Deserialize, Serialize, Serializer};
 use rusqlite::{Connection, Result};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -71,7 +71,15 @@ async fn get_index() -> Html<String> {
         time: row.get_unwrap(1),
         text: row.get_unwrap(2)
     }));
-    let data = match res {
+    let data = get_current_entry_if_exist(blogs, res);
+    let index_file = include_str!("../website/index.html");
+    handlebar.register_template_string("index", index_file).unwrap();
+    // handlebar.register_template_file("index", "website/index.html").unwrap();
+    Html(handlebar.render("index", &data).unwrap())
+}
+
+fn get_current_entry_if_exist(blogs: Vec<Entry>, res: Result<Entry>) -> Value {
+    match res {
         Ok(entry) => json!(Reply {
             current_entry: entry,
             entries: blogs
@@ -82,12 +90,7 @@ async fn get_index() -> Html<String> {
             "random_text": "Nu skal I høre en fantastisk fortælling: Der var engang to brødre...",
             "entry": blogs
         })
-    };
-    let utf8lossy = String::from_utf8_lossy(include_bytes!("../website/index.html"));
-    let index_file: &str = utf8lossy.as_ref();
-    handlebar.register_template_string("index", index_file).unwrap();
-    // handlebar.register_template_file("index", "website/index.html").unwrap();
-    Html(handlebar.render("index", &data).unwrap())
+    }
 }
 
 fn query_for_todays_entry() -> &'static str {
