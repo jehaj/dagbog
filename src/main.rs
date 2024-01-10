@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::path::Path;
 use axum::{
     routing::{get, post},
@@ -36,12 +35,18 @@ struct Reply {
 fn time_to_text<S>(time: &u64, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer,
 {
-    let datetime: DateTime<Local> = DateTime::from(DateTime::from_timestamp(*time as i64, 0).unwrap());
+    let format = get_time_string(*time);
+    serializer.serialize_str(format.as_str())
+}
+
+fn get_time_string(time: u64) -> String {
+    let datetime: DateTime<Local> = DateTime::from(DateTime::from_timestamp(time as i64, 0).unwrap());
     let weekday = datetime.weekday().to_string();
     let day = datetime.day();
     let month_name = Month::from_u32(datetime.month()).unwrap().name();
     let year = datetime.year();
-    serializer.serialize_str(format!("{} d. {}. {} {}", weekday, day, month_name, year).as_str())
+    let format = format!("{} d. {}. {} {}", weekday, day, month_name, year);
+    format
 }
 
 fn get_unix_timestamp() -> u64 {
@@ -72,17 +77,16 @@ async fn get_index() -> Html<String> {
             entries: blogs
         }),
         Err(_) => json!({
-            "date": "i dag",
+            "time": get_time_string(get_unix_timestamp()),
             "random_title": "Der var engang...",
             "random_text": "Nu skal I høre en fantastisk fortælling: Der var engang to brødre...",
             "entry": blogs
         })
     };
-    println!("{:?}", data);
-    // let utf8lossy = String::from_utf8_lossy(include_bytes!("../website/index.html"));
-    // let index_file: &str = utf8lossy.as_ref();
-    // handlebar.register_template_string("index", index_file).unwrap();
-    handlebar.register_template_file("index", "website/index.html").unwrap();
+    let utf8lossy = String::from_utf8_lossy(include_bytes!("../website/index.html"));
+    let index_file: &str = utf8lossy.as_ref();
+    handlebar.register_template_string("index", index_file).unwrap();
+    // handlebar.register_template_file("index", "website/index.html").unwrap();
     Html(handlebar.render("index", &data).unwrap())
 }
 
@@ -105,11 +109,18 @@ ORDER BY
 }
 
 async fn get_style() -> Response<String> {
-    get_file("website/style.css", false)
+    let style = include_str!("../website/style.css");
+    get_file(style, true)
 }
 
 async fn get_script() -> Response<String> {
-    get_file("website/script.js", false)
+    let script = include_str!("../website/script.js");
+    get_file(script, true)
+}
+
+async fn get_favicon() -> Response<String> {
+    let favicon = include_str!("../website/favicon.svg");
+    get_file(favicon, true)
 }
 
 async fn new_blog_entry(Json(entry): Json<Entry>) -> StatusCode {
@@ -118,13 +129,12 @@ async fn new_blog_entry(Json(entry): Json<Entry>) -> StatusCode {
     StatusCode::CREATED
 }
 
-fn get_file(path_var: &str, cached: bool) -> Response<String> {
-    let script = read_to_string(path_var).unwrap();
+fn get_file(body_string: &str, cached: bool) -> Response<String> {
     let mut builder = Response::builder();
     if cached {
         builder = builder.header("Cache-Control", "max-age=86400");
     }
-    builder.status(StatusCode::OK).body(script).unwrap()
+    builder.status(StatusCode::OK).body(body_string.to_string()).unwrap()
 }
 
 #[tokio::main]
@@ -134,8 +144,12 @@ async fn main() {
         .route("/", get(get_index))
         .route("/new_entry", post(new_blog_entry))
         .route("/script.js", get(get_script))
+        .route("/favicon.svg", get(get_favicon))
         .route("/style.css", get(get_style));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
+    let port = 3000;
+    let addr = format!("127.0.0.1:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    println!("Visit http://{}/", &addr);
     axum::serve(listener, app).await.unwrap();
 }
 
