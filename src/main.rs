@@ -88,7 +88,7 @@ fn get_current_entry_if_exist(blogs: Vec<Entry>, res: Result<Entry>) -> Value {
             "time": get_time_string(get_unix_timestamp()),
             "random_title": "Der var engang...",
             "random_text": "Nu skal I høre en fantastisk fortælling: Der var engang to brødre...",
-            "entry": blogs
+            "entries": blogs
         })
     }
 }
