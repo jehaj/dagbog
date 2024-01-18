@@ -143,17 +143,21 @@ fn get_file(body_string: &str, cached: bool) -> Response<String> {
 #[tokio::main]
 async fn main() {
     create_db_if_not_exists();
-    let app = Router::new()
-        .route("/", get(get_index))
-        .route("/new_entry", post(new_blog_entry))
-        .route("/script.js", get(get_script))
-        .route("/favicon.svg", get(get_favicon))
-        .route("/style.css", get(get_style));
+    let app = app();
     let port = 3000;
     let addr = format!("127.0.0.1:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     println!("Visit http://{}/", &addr);
     axum::serve(listener, app).await.unwrap();
+}
+
+fn app() -> Router {
+    Router::new()
+        .route("/", get(get_index))
+        .route("/new_entry", post(new_blog_entry))
+        .route("/script.js", get(get_script))
+        .route("/favicon.svg", get(get_favicon))
+        .route("/style.css", get(get_style))
 }
 
 fn create_db_if_not_exists() {
@@ -172,4 +176,21 @@ fn table_schema() -> &'static str {
         time INTEGER NOT NULL,
         text TEXT NOT NULL
     );"
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use axum::http::Request;
+    use super::*;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_get_root() {
+        let response = app()
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }
