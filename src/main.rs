@@ -76,8 +76,12 @@ async fn main() {
 }
 
 fn app(journal: SimpleSqliteJournal) -> Router {
-    let journal = journal;
-    Router::new().route("/", get(get_index)).route("/new_entry", post(new_blog_entry)).with_state(journal).route("/script.js", get(get_script)).route("/favicon.svg", get(get_favicon)).route("/style.css", get(get_style))
+    Router::new()
+        .route("/", get(get_index))
+        .route("/new_entry", post(new_blog_entry)).with_state(journal)
+        .route("/script.js", get(get_script))
+        .route("/favicon.svg", get(get_favicon))
+        .route("/style.css", get(get_style))
 }
 
 fn get_current_entry_if_exist(blogs: Vec<Entry>, res: Option<Entry>) -> Value {
