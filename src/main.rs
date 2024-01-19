@@ -1,3 +1,5 @@
+mod journal;
+
 use std::{
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
@@ -16,6 +18,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use rusqlite::{Connection, Result};
 use chrono::{Datelike, DateTime, Local, Month};
 use num_traits::cast::FromPrimitive;
+use journal::Journal;
 
 #[derive(Deserialize, Serialize)]
 struct Entry {
@@ -24,6 +27,8 @@ struct Entry {
     time: u64,
     text: String,
 }
+
+
 
 #[derive(Serialize)]
 struct Reply {
