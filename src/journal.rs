@@ -26,9 +26,6 @@ fn create_db_if_not_exists(path_to_db: &str) {
     println!("Created the database!");
 }
 
-unsafe impl Send for SimpleSqliteJournal {}
-unsafe impl Sync for SimpleSqliteJournal {}
-
 impl Journal for SimpleSqliteJournal {
     fn get_past_entries(&self) -> Vec<Entry> {
         let conn = get_db_conn(&self.path);
