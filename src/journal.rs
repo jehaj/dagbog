@@ -10,7 +10,7 @@ pub trait Journal {
 
 #[derive(Clone)]
 pub struct SimpleSqliteJournal {
-    path: String
+    path: String,
 }
 
 fn get_db_conn(path_to_db: &String) -> Connection {
@@ -44,7 +44,7 @@ impl Journal for SimpleSqliteJournal {
 
     fn get_today_entry(&self) -> Option<Entry> {
         let conn = get_db_conn(&self.path);
-        match conn.query_row(query_for_todays_entry(), [], |row| Ok(Entry {
+        match conn.query_row(query_for_today_entry(), [], |row| Ok(Entry {
             title: row.get_unwrap(0),
             time: row.get_unwrap(1),
             text: row.get_unwrap(2),
@@ -79,7 +79,7 @@ fn get_table_schema() -> &'static str {
 );"
 }
 
-fn query_for_todays_entry() -> &'static str {
+fn query_for_today_entry() -> &'static str {
     "SELECT title, time, text
 FROM blog_entries
 WHERE date(\"time\", 'unixepoch', 'localtime') = date(\"now\", 'localtime')
