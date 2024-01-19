@@ -1,14 +1,14 @@
 use std::{
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
-    env
+    env,
 };
 use axum::{
     routing::{get, post},
     Router,
     extract::Json,
     response::{Html, Response},
-    http::StatusCode
+    http::StatusCode,
 };
 use handlebars::Handlebars;
 use serde_json::{json, Value};
@@ -29,7 +29,7 @@ struct Entry {
 struct Reply {
     #[serde(flatten)]
     current_entry: Entry,
-    entries: Vec<Entry>
+    entries: Vec<Entry>,
 }
 
 // Returner Onsdag d. 10. januar 2024 for 1704843226.
@@ -61,7 +61,7 @@ async fn get_index() -> Html<String> {
     let res = res.query_map([], |row| Ok(Entry {
         title: row.get_unwrap(0),
         time: row.get_unwrap(1),
-        text: row.get_unwrap(2)
+        text: row.get_unwrap(2),
     })).unwrap();
     let mut blogs = vec!();
     for row in res {
@@ -70,7 +70,7 @@ async fn get_index() -> Html<String> {
     let res = conn.query_row(query_for_todays_entry(), [], |row| Ok(Entry {
         title: row.get_unwrap(0),
         time: row.get_unwrap(1),
-        text: row.get_unwrap(2)
+        text: row.get_unwrap(2),
     }));
     let data = get_current_entry_if_exist(blogs, res);
     let index_file = include_str!("../website/index.html");
@@ -143,7 +143,6 @@ fn get_file(body_string: &str, cached: bool) -> Response<String> {
 
 #[tokio::main]
 async fn main() {
-    let conn = initialize_db_connection();
     let app = app();
     let port = 3000;
     let addr = format!("127.0.0.1:{}", port);
@@ -169,9 +168,9 @@ fn app() -> Router {
 
 fn create_db_if_not_exists(path_to_db: &str) {
     let exists = Path::new(path_to_db).exists();
-    println!("The database does{} exist (at {}).", if exists { "" } else {" not"}, path_to_db);
-    let conn = Connection::open(path_to_db).unwrap();
+    println!("The database does{} exist (at {}).", if exists { "" } else { " not" }, path_to_db);
     if exists { return; }
+    let conn = Connection::open(path_to_db).unwrap();
     conn.execute(table_schema(), []).unwrap();
     println!("Created the database!");
 }
@@ -195,7 +194,6 @@ mod tests {
     #[tokio::test]
     async fn test_get_root() {
         env::set_var("db_path", "test.sqlite3");
-        let conn = initialize_db_connection();
         let response = app()
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
@@ -204,8 +202,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_unix_to_date_string() {
+    async fn test_unix_to_date_string_1() {
         let date_string = get_time_string(1705615764);
         assert_eq!(date_string, "Thu d. 18. January 2024".to_string());
+    }
+
+    #[tokio::test]
+    async fn test_unix_to_date_string_2() {
+        let date_string = get_time_string(1705652313);
+        assert_eq!(date_string, "Fri d. 19. January 2024".to_string());
     }
 }
