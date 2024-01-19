@@ -1,10 +1,6 @@
 mod journal;
 
-use std::{
-    path::Path,
-    time::{SystemTime, UNIX_EPOCH},
-    env,
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 use axum::{
     routing::{get, post},
     Router,
@@ -12,13 +8,14 @@ use axum::{
     response::{Html, Response},
     http::StatusCode,
 };
+use axum::extract::State;
 use handlebars::Handlebars;
 use serde_json::{json, Value};
 use serde::{Deserialize, Serialize, Serializer};
-use rusqlite::{Connection, Result};
 use chrono::{Datelike, DateTime, Local, Month};
 use num_traits::cast::FromPrimitive;
 use journal::Journal;
+use journal::SimpleSqliteJournal;
 
 #[derive(Deserialize, Serialize)]
 struct Entry {
@@ -27,8 +24,6 @@ struct Entry {
     time: u64,
     text: String,
 }
-
-
 
 #[derive(Serialize)]
 struct Reply {
@@ -59,24 +54,10 @@ fn get_unix_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-async fn get_index() -> Html<String> {
-    let conn = initialize_db_connection();
+async fn get_index(State(journal): State<SimpleSqliteJournal>) -> Html<String> {
     let mut handlebar = Handlebars::new();
-    let mut res = conn.prepare(query_for_past_entries()).unwrap();
-    let res = res.query_map([], |row| Ok(Entry {
-        title: row.get_unwrap(0),
-        time: row.get_unwrap(1),
-        text: row.get_unwrap(2),
-    })).unwrap();
-    let mut blogs = vec!();
-    for row in res {
-        blogs.push(row.unwrap());
-    }
-    let res = conn.query_row(query_for_todays_entry(), [], |row| Ok(Entry {
-        title: row.get_unwrap(0),
-        time: row.get_unwrap(1),
-        text: row.get_unwrap(2),
-    }));
+    let blogs = journal.get_past_entries();
+    let res = journal.get_today_entry();
     let data = get_current_entry_if_exist(blogs, res);
     let index_file = include_str!("../website/index.html");
     handlebar.register_template_string("index", index_file).unwrap();
@@ -84,37 +65,19 @@ async fn get_index() -> Html<String> {
     Html(handlebar.render("index", &data).unwrap())
 }
 
-fn get_current_entry_if_exist(blogs: Vec<Entry>, res: Result<Entry>) -> Value {
+fn get_current_entry_if_exist(blogs: Vec<Entry>, res: Option<Entry>) -> Value {
     match res {
-        Ok(entry) => json!(Reply {
+        Some(entry) => json!(Reply {
             current_entry: entry,
             entries: blogs
         }),
-        Err(_) => json!({
+        None => json!({
             "time": get_time_string(get_unix_timestamp()),
             "random_title": "Der var engang...",
             "random_text": "Nu skal I høre en fantastisk fortælling: Der var engang to brødre...",
             "entries": blogs
         })
     }
-}
-
-fn query_for_todays_entry() -> &'static str {
-    "SELECT title, time, text
-FROM blog_entries
-WHERE date(\"time\", 'unixepoch', 'localtime') = date(\"now\", 'localtime')
-ORDER BY \"time\" DESC
-LIMIT 1;"
-}
-
-fn query_for_past_entries() -> &'static str {
-    "SELECT title, max(\"time\") as \"time\", text
-FROM blog_entries
-WHERE date(\"now\", 'localtime') > date(\"time\", 'unixepoch', 'localtime')
-GROUP BY
-date(\"time\",'unixepoch')
-ORDER BY
-\"time\" DESC;"
 }
 
 async fn get_style() -> Response<String> {
@@ -132,9 +95,8 @@ async fn get_favicon() -> Response<String> {
     get_file(favicon, true)
 }
 
-async fn new_blog_entry(Json(entry): Json<Entry>) -> StatusCode {
-    let conn = initialize_db_connection();
-    conn.execute("INSERT INTO blog_entries(title, time, text) VALUES(?, ?, ?)", (entry.title, entry.time, entry.text)).unwrap();
+async fn new_blog_entry(State(journal): State<SimpleSqliteJournal>, Json(entry): Json<Entry>) -> StatusCode {
+    journal.store_new_entry(entry);
     StatusCode::CREATED
 }
 
@@ -148,7 +110,7 @@ fn get_file(body_string: &str, cached: bool) -> Response<String> {
 
 #[tokio::main]
 async fn main() {
-    let app = app();
+    let app = app("db.sqlite3".to_string());
     let port = 3000;
     let addr = format!("127.0.0.1:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
@@ -156,37 +118,14 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn initialize_db_connection() -> Connection {
-    let path_to_db = env::var("db_path").unwrap_or("db.sqlite3".to_string());
-    create_db_if_not_exists(path_to_db.as_str());
-    Connection::open(path_to_db).expect("Could not open db.")
-}
-
-fn app() -> Router {
+fn app(path: String) -> Router {
+    let journal = SimpleSqliteJournal::new(path);
     Router::new()
         .route("/", get(get_index))
-        .route("/new_entry", post(new_blog_entry))
+        .route("/new_entry", post(new_blog_entry)).with_state(journal)
         .route("/script.js", get(get_script))
         .route("/favicon.svg", get(get_favicon))
         .route("/style.css", get(get_style))
-}
-
-fn create_db_if_not_exists(path_to_db: &str) {
-    let exists = Path::new(path_to_db).exists();
-    println!("The database does{} exist (at {}).", if exists { "" } else { " not" }, path_to_db);
-    if exists { return; }
-    let conn = Connection::open(path_to_db).unwrap();
-    conn.execute(table_schema(), []).unwrap();
-    println!("Created the database!");
-}
-
-fn table_schema() -> &'static str {
-    "CREATE TABLE IF NOT EXISTS blog_entries(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        time INTEGER NOT NULL,
-        text TEXT NOT NULL
-    );"
 }
 
 #[cfg(test)]
@@ -198,8 +137,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_root() {
-        env::set_var("db_path", "test.sqlite3");
-        let response = app()
+        let response = app("test.sqlite3".to_string())
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
