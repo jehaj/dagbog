@@ -76,7 +76,7 @@ async fn main() {
 }
 
 fn app(journal: SimpleSqliteJournal) -> Router {
-    let journal = SimpleSqliteJournal::new("db.sqlite3".to_string());
+    let journal = journal;
     Router::new().route("/", get(get_index)).route("/new_entry", post(new_blog_entry)).with_state(journal).route("/script.js", get(get_script)).route("/favicon.svg", get(get_favicon)).route("/style.css", get(get_style))
 }
 
